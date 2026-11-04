@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 use App\Models\Pelanggan;
 
@@ -14,7 +15,7 @@ class PelangganController extends Controller
     public function index()
     {
         $data['dataPelanggan'] = Pelanggan::all();
-		return view('admin.pelanggan.index',$data);
+        return view('admin.pelanggan.index', $data);
     }
 
     /**
@@ -30,18 +31,18 @@ class PelangganController extends Controller
      */
     public function store(Request $request)
     {
-        //dd($request->all());
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:100',
+            'last_name'  => 'required|string|max:100',
+            'birthday'   => 'required|date',
+            'gender'     => 'required|in:Male,Female',
+            'email'      => 'required|email|unique:pelanggan,email',
+            'phone'      => 'required|numeric',
+        ], $this->messages());
 
-        $data['first_name'] = $request->first_name;
-		$data['last_name'] = $request->last_name;
-		$data['birthday'] = $request->birthday;
-		$data['gender'] = $request->gender;
-		$data['email'] = $request->email;
-		$data['phone'] = $request->phone;
+        Pelanggan::create($validated);
 
-		Pelanggan::create($data);
-
-		return redirect()->route('pelanggan.index')->with('success','Penambahan Data Berhasil!');
+        return redirect()->route('pelanggan.index')->with('success', 'Penambahan Data Berhasil!');
     }
 
     /**
@@ -66,7 +67,25 @@ class PelangganController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $pelanggan = Pelanggan::findOrFail($id);
+
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:100',
+            'last_name'  => 'required|string|max:100',
+            'birthday'   => 'required|date',
+            'gender'     => 'required|in:Male,Female',
+            // email harus unik, kecuali untuk data pelanggan yang sedang diedit
+            'email'      => [
+                'required',
+                'email',
+                Rule::unique('pelanggan', 'email')->ignore($pelanggan->pelanggan_id, 'pelanggan_id'),
+            ],
+            'phone'      => 'required|numeric',
+        ], $this->messages());
+
+        $pelanggan->update($validated);
+
+        return redirect()->route('pelanggan.index')->with('success', 'Perubahan Data Berhasil!');
     }
 
     /**
@@ -74,6 +93,30 @@ class PelangganController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $pelanggan = Pelanggan::findOrFail($id);
+
+        $pelanggan->delete();
+
+        return redirect()->route('pelanggan.index')->with('success', 'Data berhasil dihapus');
+    }
+
+    /**
+     * Pesan error validasi (Bahasa Indonesia).
+     */
+    private function messages(): array
+    {
+        return [
+            'first_name.required' => 'First name wajib diisi.',
+            'last_name.required'  => 'Last name wajib diisi.',
+            'birthday.required'   => 'Birthday wajib diisi.',
+            'birthday.date'       => 'Birthday harus berupa tanggal.',
+            'gender.required'     => 'Gender wajib diisi.',
+            'gender.in'           => 'Gender hanya boleh bernilai Male atau Female.',
+            'email.required'      => 'Email wajib diisi.',
+            'email.email'         => 'Format email tidak valid.',
+            'email.unique'        => 'Email sudah digunakan.',
+            'phone.required'      => 'Phone wajib diisi.',
+            'phone.numeric'       => 'Phone harus berupa angka.',
+        ];
     }
 }
